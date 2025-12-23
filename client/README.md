@@ -1,107 +1,36 @@
-# Memvery Frontend
-
-A Next.js application for turning videos into searchable knowledge.
-
-## Project Structure
-
-```
-client/
-├── app/
-│   ├── page.tsx              # Landing page (/)
-│   ├── signup/
-│   │   └── page.tsx          # Sign up page (/signup)
-│   ├── login/
-│   │   └── page.tsx          # Sign in page (/login)
-│   ├── dashboard/
-│   │   └── page.tsx          # Dashboard page (/dashboard)
-│   ├── layout.tsx            # Root layout
-│   └── globals.css           # Global styles
-│
-├── components/
-│   ├── ui/
-│   │   ├── Button.tsx        # Reusable button component
-│   │   └── Input.tsx         # Reusable input component
-│   └── dashboard/
-│       ├── Header.tsx        # Dashboard header
-│       ├── SubmitContent.tsx # URL submission form
-│       ├── JobsList.tsx      # Processing queue table
-│       └── ChatInterface.tsx # Chat UI
-```
-
-## Pages
-
-### 1. Landing Page (/)
-- App name and tagline
-- Description
-- Call-to-action buttons (Get Started, Sign In)
-
-### 2. Sign Up Page (/signup)
-- Email and password inputs
-- Sign up button
-- Link to sign in page
-- No authentication logic (UI only)
-
-### 3. Sign In Page (/login)
-- Email and password inputs
-- Sign in button
-- Link to sign up page
-- No authentication logic (UI only)
-
-### 4. Dashboard Page (/dashboard)
-Three main sections:
-- **Submit Content**: Input for YouTube URLs
-- **Jobs List**: Table showing processing status
-- **Chat Interface**: ChatGPT-style interface for querying video content
-
-## Components
-
-### UI Components
-- **Button**: Supports primary, secondary, and outline variants
-- **Input**: Text input with optional label and error display
-
-### Dashboard Components
-- **Header**: App name and logout button
-- **SubmitContent**: Form for submitting YouTube URLs
-- **JobsList**: Table displaying mock processing jobs
-- **ChatInterface**: Chat UI with message history and input
-
-## Placeholder Functions
-
-The following functions are defined but contain no backend logic:
-
-- `submitRequest(url)` - in SubmitContent.tsx
-- `sendChatMessage(message)` - in ChatInterface.tsx
-- `handleLogout()` - in Header.tsx
-
-## Tech Stack
-
-- Next.js 16 (App Router)
-- React 19
-- TypeScript
-- Tailwind CSS 4
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
+First, run the development server:
+
 ```bash
-# Install dependencies
-npm install
-
-# Run development server
 npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm run start
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Development Notes
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-- All components are fully typed with TypeScript
-- No backend or authentication logic implemented
-- Mock data is used for demonstrations
-- Forms use client-side state only
-- All pages are responsive and mobile-friendly
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
