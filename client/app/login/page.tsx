@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import GoogleButton from '@/components/ui/GoogleButton';
 import { signIn } from '@/lib/auth';
 
 /**
@@ -50,19 +51,30 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {message && (
-              <div
-                className={`p-4 rounded-lg ${
-                  message.type === 'error'
-                    ? 'bg-red-50 text-red-800 border border-red-200'
-                    : 'bg-green-50 text-green-800 border border-green-200'
-                }`}
-              >
-                <p className="text-sm">{message.text}</p>
-              </div>
-            )}
+          {message && (
+            <div
+              className={`p-4 rounded-lg mb-6 ${
+                message.type === 'error'
+                  ? 'bg-red-50 text-red-800 border border-red-200'
+                  : 'bg-green-50 text-green-800 border border-green-200'
+              }`}
+            >
+              <p className="text-sm">{message.text}</p>
+            </div>
+          )}
 
+          <GoogleButton />
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
             <Input
               label="Email"
               name="email"

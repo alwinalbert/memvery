@@ -70,3 +70,18 @@ export async function getAuthToken(): Promise<string | null> {
   const session = await getSession();
   return session?.access_token || null;
 }
+
+/**
+ * Sign in with Google
+ */
+export async function signInWithGoogle() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+
+  if (error) throw new Error(error.message);
+  return data;
+}
