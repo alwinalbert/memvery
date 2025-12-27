@@ -5,8 +5,7 @@
   "scripts": {
     "dev": "cd client && npm run dev",
     "build": "cd client && npm run build",
-    "start": "cd client && npm run start",
-    "postinstall": "cd client && npm install"
+    "start": "cd client && npm run start"
   },
   "workspaces": [
     "client",
