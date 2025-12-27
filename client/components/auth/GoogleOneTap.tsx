@@ -21,37 +21,39 @@ const generateNonce = async (): Promise<string[]> => {
 export default function GoogleOneTap() {
   const router = useRouter();
 
-  const initializeGoogleOneTap = async () => {
-    const [nonce, hashedNonce] = await generateNonce();
+  const initializeGoogleOneTap = () => {
+    (async () => {
+      const [nonce, hashedNonce] = await generateNonce();
 
-    // Check if there's already an existing session
-    const { data } = await supabase.auth.getSession();
-    if (data.session) {
-      router.push('/dashboard');
-      return;
-    }
+      // Check if there's already an existing session
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        router.push('/dashboard');
+        return;
+      }
 
-    google.accounts.id.initialize({
-      client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-      callback: async (response: any) => {
-        try {
-          const { data, error } = await supabase.auth.signInWithIdToken({
-            provider: 'google',
-            token: response.credential,
-            nonce,
-          });
+      google.accounts.id.initialize({
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+        callback: async (response: any) => {
+          try {
+            const { data, error } = await supabase.auth.signInWithIdToken({
+              provider: 'google',
+              token: response.credential,
+              nonce,
+            });
 
-          if (error) throw error;
-          router.push('/dashboard');
-        } catch (error) {
-          console.error('Google One-Tap error:', error);
-        }
-      },
-      nonce: hashedNonce,
-      use_fedcm_for_prompt: true,
-    });
+            if (error) throw error;
+            router.push('/dashboard');
+          } catch (error) {
+            console.error('Google One-Tap error:', error);
+          }
+        },
+        nonce: hashedNonce,
+        use_fedcm_for_prompt: true,
+      });
 
-    google.accounts.id.prompt();
+      google.accounts.id.prompt();
+    })();
   };
 
   return (
