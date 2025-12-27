@@ -1,0 +1,15 @@
+{
+  "name": "memvery",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd client && npm run start",
+    "install:client": "cd client && npm install"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ]
+}
