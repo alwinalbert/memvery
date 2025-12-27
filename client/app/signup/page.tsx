@@ -45,14 +45,14 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-black flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-[#0f0f23] border border-[#5227FF] rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="text-3xl font-bold text-white mb-2">
               Create Account
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-400">
               Join Memvery to start learning from videos
             </p>
           </div>
@@ -61,8 +61,8 @@ export default function SignUpPage() {
             <div
               className={`p-4 rounded-lg mb-6 ${
                 message.type === 'error'
-                  ? 'bg-red-50 text-red-800 border border-red-200'
-                  : 'bg-green-50 text-green-800 border border-green-200'
+                  ? 'bg-red-900/20 text-red-400 border border-red-800'
+                  : 'bg-green-900/20 text-green-400 border border-green-800'
               }`}
             >
               <p className="text-sm">{message.text}</p>
@@ -73,10 +73,10 @@ export default function SignUpPage() {
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+              <div className="w-full border-t border-gray-700"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+              <span className="px-2 bg-[#0f0f23] text-gray-500">Or continue with email</span>
             </div>
           </div>
 
@@ -102,9 +102,9 @@ export default function SignUpPage() {
             </Button>
           </form>
 
-          <p className="text-center mt-6 text-gray-600">
+          <p className="text-center mt-6 text-gray-400">
             Already have an account?{' '}
-            <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link href="/login" className="text-[#5227FF] hover:text-[#6437FF] font-medium">
               Sign In
             </Link>
           </p>
