@@ -19,6 +19,14 @@ export const config = {
   client: {
     url: process.env.CLIENT_URL || 'http://localhost:3000',
   },
+
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY || '',
+  },
+
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY || '',
+  },
 };
 
 /**
@@ -28,6 +36,7 @@ export function validateConfig() {
   const required = [
     'SUPABASE_URL',
     'SUPABASE_SERVICE_ROLE_KEY',
+    'OPENAI_API_KEY',
   ];
 
   const missing = required.filter(key => !process.env[key]);

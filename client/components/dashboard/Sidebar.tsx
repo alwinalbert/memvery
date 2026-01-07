@@ -15,9 +15,10 @@ interface SidebarProps {
   currentChatId: string | null;
   onSelectChat: (chatId: string) => void;
   onNewChat: () => void;
+  onDeleteChat: (chatId: string) => void;
 }
 
-export default function Sidebar({ chats, currentChatId, onSelectChat, onNewChat }: SidebarProps) {
+export default function Sidebar({ chats, currentChatId, onSelectChat, onNewChat, onDeleteChat }: SidebarProps) {
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -104,18 +105,48 @@ export default function Sidebar({ chats, currentChatId, onSelectChat, onNewChat 
                 </div>
               ) : (
                 chats.map((chat) => (
-                  <button
+                  <div
                     key={chat.id}
-                    onClick={() => onSelectChat(chat.id)}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors group ${
+                    className={`relative rounded-lg transition-colors group ${
                       currentChatId === chat.id
                         ? 'bg-gray-800 text-white'
                         : 'text-gray-300 hover:bg-gray-800'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => onSelectChat(chat.id)}
+                      className="w-full text-left px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <svg
+                          className="w-4 h-4 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                          />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{chat.title}</p>
+                          <p className="text-xs text-gray-500 truncate">{chat.timestamp}</p>
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteChat(chat.id);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-600 rounded transition-all"
+                      title="Delete chat"
+                    >
                       <svg
-                        className="w-4 h-4 flex-shrink-0"
+                        className="w-4 h-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -124,15 +155,11 @@ export default function Sidebar({ chats, currentChatId, onSelectChat, onNewChat 
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                         />
                       </svg>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{chat.title}</p>
-                        <p className="text-xs text-gray-500 truncate">{chat.timestamp}</p>
-                      </div>
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 ))
               )}
             </div>
@@ -141,7 +168,53 @@ export default function Sidebar({ chats, currentChatId, onSelectChat, onNewChat 
 
         {/* User Section */}
         {!isCollapsed && (
-          <div className="p-4 border-t border-gray-700">
+          <div className="p-4 border-t border-gray-700 space-y-2">
+            <button
+              onClick={() => router.push('/profile')}
+              className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+              <span className="text-sm font-medium">Profile</span>
+            </button>
+
+            <button
+              onClick={() => router.push('/settings')}
+              className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span className="text-sm font-medium">Settings</span>
+            </button>
+
             <button
               onClick={handleSignOut}
               className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"

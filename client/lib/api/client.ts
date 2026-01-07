@@ -83,17 +83,22 @@ export const api = {
    * Chat functionality
    */
   chat: {
-    sendMessage: (message: string, contentId?: string) =>
+    sendMessage: (message: string, videoId?: string) =>
       apiRequest<{
         success: boolean;
         data: {
-          id: string;
-          message: string;
+          conversationId: string;
+          response: string;
+          sources: Array<{
+            timestamp: string;
+            startTime: number;
+            similarity: number;
+          }>;
           timestamp: string;
         };
       }>('/api/chat/message', {
         method: 'POST',
-        body: JSON.stringify({ message, contentId }),
+        body: JSON.stringify({ message, videoId }),
       }),
 
     getHistory: (contentId: string) =>

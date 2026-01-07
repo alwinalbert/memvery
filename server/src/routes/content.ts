@@ -1,5 +1,7 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { getVideoTranscript } from '../services/youtube';
+import { createJobRecord, updateJobStatus } from '../services/database';
 
 const router = Router();
 
@@ -10,7 +12,7 @@ const router = Router();
  */
 router.post('/submit', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { url, type } = req.body;
+    const { url } = req.body;
 
     if (!url) {
       return res.status(400).json({
@@ -18,27 +20,48 @@ router.post('/submit', authenticate, async (req: AuthRequest, res: Response) => 
       });
     }
 
-    // TODO: Implement YouTube URL validation
-    // TODO: Add job to processing queue
-    // TODO: Store job in database
+    console.log(`📥 Processing YouTube URL: ${url}`);
+    console.log(`👤 User ID: ${req.user?.id}`);
 
-    // Placeholder response
+    // Fetch transcript from YouTube using Python service
+    const transcript = await getVideoTranscript(url);
+
+    console.log(`✅ Transcript fetched: ${transcript.segments.length} segments`);
+    console.log(`📺 Video: ${transcript.title}`);
+
+    // Create job record in database with OpenAI embeddings
+    const job = await createJobRecord({
+      userId: req.user!.id,
+      videoId: transcript.videoId,
+      title: transcript.title,
+      channelTitle: transcript.channelTitle,
+      duration: transcript.duration,
+      url,
+      transcript: transcript.fullText,
+      segments: transcript.segments,
+    });
+
+    console.log(`💾 Job created: ${job.id}`);
+
+    // Update status to completed
+    await updateJobStatus(job.id, 'completed');
+
     res.json({
       success: true,
-      message: 'Content submitted for processing',
+      message: 'Video processed successfully',
       data: {
-        id: Date.now().toString(),
-        url,
-        type: type || 'video',
-        status: 'queued',
-        userId: req.user?.id,
-        createdAt: new Date().toISOString(),
+        id: job.id,
+        videoId: transcript.videoId,
+        title: transcript.title,
+        status: 'completed',
+        createdAt: job.createdAt,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Submit content error:', error);
     res.status(500).json({
-      error: 'Failed to submit content',
+      success: false,
+      error: error.message || 'Failed to submit content',
     });
   }
 });
