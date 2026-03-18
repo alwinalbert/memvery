@@ -3,14 +3,21 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
-import ChatArea from '@/components/dashboard/ChatArea';
+import VideoPanel from '@/components/dashboard/VideoPanel';
+import SummaryPanel from '@/components/dashboard/SummaryPanel';
 import { getCurrentUser } from '@/lib/auth';
+import { api } from '@/lib/api/client';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  sources?: Array<{
+    timestamp: string;
+    startTime: number;
+    similarity: number;
+  }>;
 }
 
 interface Chat {
@@ -21,7 +28,7 @@ interface Chat {
 
 /**
  * Dashboard Page Component
- * ChatGPT-style interface with sidebar and chat area
+ * NoteGPT-style interface with video player and summary panel
  * Protected route - requires authentication
  */
 export default function DashboardPage() {
@@ -31,9 +38,35 @@ export default function DashboardPage() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoadingMessage, setIsLoadingMessage] = useState(false);
+  const [processedVideoId, setProcessedVideoId] = useState<string | null>(null);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
+  const [currentVideoTitle, setCurrentVideoTitle] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  useEffect(() => {
+    // Load current video from localStorage (from process page)
+    const currentVideo = localStorage.getItem('memvery_current_video');
+    if (currentVideo) {
+      const video = JSON.parse(currentVideo);
+      setProcessedVideoId(video.id);
+      setCurrentVideoUrl(video.url);
+      setCurrentVideoTitle(video.title);
+
+      // Add welcome message
+      const welcomeMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `✅ Video processed successfully!\n\n📺 **${video.title}**\n\nYou can now ask me questions about this video and I'll provide answers with timestamp citations!`,
+        timestamp: new Date().toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      };
+      setMessages([welcomeMessage]);
+    }
   }, []);
 
   async function checkAuth() {
@@ -71,6 +104,27 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDeleteChat = (chatId: string) => {
+    // Confirm deletion
+    if (!confirm('Are you sure you want to delete this chat?')) {
+      return;
+    }
+
+    // Remove chat from list
+    const updatedChats = chats.filter((chat) => chat.id !== chatId);
+    saveChatHistory(updatedChats);
+
+    // Remove chat messages from localStorage
+    localStorage.removeItem(`memvery_chat_${chatId}`);
+
+    // If the deleted chat was selected, clear the current chat
+    if (currentChatId === chatId) {
+      setCurrentChatId(null);
+      setMessages([]);
+      setProcessedVideoId(null);
+    }
+  };
+
   const handleSendMessage = async (content: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -101,18 +155,120 @@ export default function DashboardPage() {
       setCurrentChatId(newChatId);
     }
 
-    setTimeout(() => {
-      const assistantMessage: Message = {
+    try {
+      // Check if this is a YouTube URL
+      const isYouTubeUrl = content.includes('youtube.com') || content.includes('youtu.be');
+
+      if (isYouTubeUrl) {
+        // Show processing message
+        const processingMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `🎬 Processing YouTube video...\n\nI'm fetching the transcript using our Python service (yt-dlp). This may take 10-30 seconds depending on the video length.`,
+          timestamp: new Date().toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        };
+
+        const messagesWithProcessing = [...updatedMessages, processingMessage];
+        setMessages(messagesWithProcessing);
+
+        // Process the video
+        const response = await api.content.submit(content);
+
+        if (response.success) {
+          setProcessedVideoId(response.data.id);
+          setCurrentVideoUrl(content);
+          setCurrentVideoTitle(response.data.title);
+
+          const successMessage: Message = {
+            id: (Date.now() + 2).toString(),
+            role: 'assistant',
+            content: `✅ Video processed successfully!\n\n📺 **${response.data.title}**\n\nYou can now ask me questions about this video and I'll provide answers with timestamp citations!`,
+            timestamp: new Date().toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          };
+
+          const finalMessages = [...updatedMessages, successMessage];
+          setMessages(finalMessages);
+          setIsLoadingMessage(false);
+
+          if (currentChatId) {
+            localStorage.setItem(
+              `memvery_chat_${currentChatId}`,
+              JSON.stringify(finalMessages)
+            );
+          }
+        }
+      } else {
+        // Regular chat message - use RAG
+        if (processedVideoId) {
+          const response = await api.chat.sendMessage(content, processedVideoId);
+
+          if (response.success) {
+            const assistantMessage: Message = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content: response.data.response,
+              timestamp: new Date().toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+              }),
+              sources: response.data.sources
+            };
+
+            const finalMessages = [...updatedMessages, assistantMessage];
+            setMessages(finalMessages);
+            setIsLoadingMessage(false);
+
+            if (currentChatId) {
+              localStorage.setItem(
+                `memvery_chat_${currentChatId}`,
+                JSON.stringify(finalMessages)
+              );
+            }
+          }
+        } else {
+          // No video processed yet
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: "Please paste a YouTube URL first so I can process the video and answer your questions about it!",
+            timestamp: new Date().toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          };
+
+          const finalMessages = [...updatedMessages, assistantMessage];
+          setMessages(finalMessages);
+          setIsLoadingMessage(false);
+
+          if (currentChatId) {
+            localStorage.setItem(
+              `memvery_chat_${currentChatId}`,
+              JSON.stringify(finalMessages)
+            );
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I'm ready to help you with your video content! This is a placeholder response. In production, this will connect to your backend API to process and analyze YouTube videos.",
+        content: `❌ Error: ${error.message || 'Failed to process your request. Please make sure all services are running.'}`,
         timestamp: new Date().toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit'
         })
       };
 
-      const finalMessages = [...updatedMessages, assistantMessage];
+      const finalMessages = [...updatedMessages, errorMessage];
       setMessages(finalMessages);
       setIsLoadingMessage(false);
 
@@ -122,29 +278,35 @@ export default function DashboardPage() {
           JSON.stringify(finalMessages)
         );
       }
-    }, 1000);
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <p className="text-gray-400">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex overflow-hidden">
+    <div className="h-screen flex overflow-hidden bg-[#0a0a0f]">
       <Sidebar
         chats={chats}
         currentChatId={currentChatId}
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
+        onDeleteChat={handleDeleteChat}
       />
-      <ChatArea
+      <VideoPanel
+        videoUrl={currentVideoUrl}
+        videoTitle={currentVideoTitle}
+      />
+      <SummaryPanel
         messages={messages}
         onSendMessage={handleSendMessage}
         isLoading={isLoadingMessage}
+        videoProcessed={!!processedVideoId}
       />
     </div>
   );
