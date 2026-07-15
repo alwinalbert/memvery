@@ -10,8 +10,25 @@ from flask_cors import CORS
 import yt_dlp
 import json
 import urllib.request
+import time
+import random
 
 app = Flask(__name__)
+
+def fetch_with_retry(url, max_retries=3, base_delay=2):
+    """Fetch URL with exponential backoff retry for rate limiting"""
+    for attempt in range(max_retries):
+        try:
+            response = urllib.request.urlopen(url)
+            return response.read()
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                print(f"⏳ Rate limited. Waiting {delay:.1f}s before retry {attempt + 2}/{max_retries}...")
+                time.sleep(delay)
+            else:
+                raise
+
 CORS(app)  # Enable CORS for all routes
 
 @app.route('/health', methods=['GET'])
@@ -98,10 +115,10 @@ def get_transcript():
                 # Fallback to first available format
                 json3_sub = subs[0]
 
-            # Download subtitle data
+            # Download subtitle data with retry for rate limiting
             print(f"📥 Downloading subtitles ({lang_code})...")
-            response = urllib.request.urlopen(json3_sub['url'])
-            subtitle_data = json.loads(response.read())
+            subtitle_content = fetch_with_retry(json3_sub['url'])
+            subtitle_data = json.loads(subtitle_content)
 
             # Parse transcript from json3 format
             events = subtitle_data.get('events', [])

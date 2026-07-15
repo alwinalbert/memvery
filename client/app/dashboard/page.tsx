@@ -24,6 +24,7 @@ interface Chat {
   id: string;
   title: string;
   timestamp: string;
+  jobId?: string | null;
 }
 
 /**
@@ -47,7 +48,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    // Load current video from localStorage (from process page)
+    // Load current video from localStorage (from process page or library)
     const currentVideo = localStorage.getItem('memvery_current_video');
     if (currentVideo) {
       const video = JSON.parse(currentVideo);
@@ -59,13 +60,16 @@ export default function DashboardPage() {
       const welcomeMessage: Message = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: `✅ Video processed successfully!\n\n📺 **${video.title}**\n\nYou can now ask me questions about this video and I'll provide answers with timestamp citations!`,
+        content: `Video loaded!\n\n**${video.title}**\n\nYou can now ask me questions about this video and I'll provide answers with timestamp citations!`,
         timestamp: new Date().toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit'
         })
       };
       setMessages([welcomeMessage]);
+
+      // Clear the localStorage after loading
+      localStorage.removeItem('memvery_current_video');
     }
   }, []);
 
@@ -79,45 +83,88 @@ export default function DashboardPage() {
     }
   }
 
-  const loadChatHistory = () => {
-    const savedChats = localStorage.getItem('memvery_chats');
-    if (savedChats) {
-      setChats(JSON.parse(savedChats));
+  const loadChatHistory = async () => {
+    try {
+      const response = await api.chat.getConversations();
+      if (response.success) {
+        setChats(response.data.map(conv => ({
+          id: conv.id,
+          title: conv.title,
+          timestamp: new Date(conv.updatedAt).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric'
+          }),
+          jobId: conv.jobId,
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      // Fallback to localStorage for backwards compatibility
+      const savedChats = localStorage.getItem('memvery_chats');
+      if (savedChats) {
+        setChats(JSON.parse(savedChats));
+      }
     }
-  };
-
-  const saveChatHistory = (updatedChats: Chat[]) => {
-    localStorage.setItem('memvery_chats', JSON.stringify(updatedChats));
-    setChats(updatedChats);
   };
 
   const handleNewChat = () => {
     setCurrentChatId(null);
     setMessages([]);
+    setProcessedVideoId(null);
+    setCurrentVideoUrl(null);
+    setCurrentVideoTitle(null);
   };
 
-  const handleSelectChat = (chatId: string) => {
+  const handleSelectChat = async (chatId: string) => {
     setCurrentChatId(chatId);
-    const savedMessages = localStorage.getItem(`memvery_chat_${chatId}`);
-    if (savedMessages) {
-      setMessages(JSON.parse(savedMessages));
+
+    try {
+      const response = await api.chat.getMessages(chatId);
+      if (response.success) {
+        // Set the video context from the conversation
+        if (response.data.jobId) {
+          setProcessedVideoId(response.data.jobId);
+        }
+
+        // Map messages from API response
+        setMessages(response.data.messages.map(msg => ({
+          id: msg.id,
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          timestamp: new Date(msg.timestamp).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          sources: msg.sources,
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      // Fallback to localStorage
+      const savedMessages = localStorage.getItem(`memvery_chat_${chatId}`);
+      if (savedMessages) {
+        setMessages(JSON.parse(savedMessages));
+      }
     }
   };
 
-  const handleDeleteChat = (chatId: string) => {
-    // Confirm deletion
+  const handleDeleteChat = async (chatId: string) => {
     if (!confirm('Are you sure you want to delete this chat?')) {
       return;
     }
 
-    // Remove chat from list
-    const updatedChats = chats.filter((chat) => chat.id !== chatId);
-    saveChatHistory(updatedChats);
+    try {
+      await api.chat.deleteConversation(chatId);
+      setChats(chats.filter((chat) => chat.id !== chatId));
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+      // Fallback: remove from local state anyway
+      setChats(chats.filter((chat) => chat.id !== chatId));
+    }
 
-    // Remove chat messages from localStorage
+    // Remove from localStorage as fallback cleanup
     localStorage.removeItem(`memvery_chat_${chatId}`);
 
-    // If the deleted chat was selected, clear the current chat
     if (currentChatId === chatId) {
       setCurrentChatId(null);
       setMessages([]);
@@ -140,21 +187,6 @@ export default function DashboardPage() {
     setMessages(updatedMessages);
     setIsLoadingMessage(true);
 
-    if (!currentChatId) {
-      const newChatId = Date.now().toString();
-      const newChat: Chat = {
-        id: newChatId,
-        title: content.slice(0, 50) + (content.length > 50 ? '...' : ''),
-        timestamp: new Date().toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric'
-        })
-      };
-      const updatedChats = [newChat, ...chats];
-      saveChatHistory(updatedChats);
-      setCurrentChatId(newChatId);
-    }
-
     try {
       // Check if this is a YouTube URL
       const isYouTubeUrl = content.includes('youtube.com') || content.includes('youtu.be');
@@ -164,15 +196,14 @@ export default function DashboardPage() {
         const processingMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: `🎬 Processing YouTube video...\n\nI'm fetching the transcript using our Python service (yt-dlp). This may take 10-30 seconds depending on the video length.`,
+          content: `Processing YouTube video...\n\nFetching the transcript. This may take 10-30 seconds depending on the video length.`,
           timestamp: new Date().toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit'
           })
         };
 
-        const messagesWithProcessing = [...updatedMessages, processingMessage];
-        setMessages(messagesWithProcessing);
+        setMessages([...updatedMessages, processingMessage]);
 
         // Process the video
         const response = await api.content.submit(content);
@@ -180,35 +211,34 @@ export default function DashboardPage() {
         if (response.success) {
           setProcessedVideoId(response.data.id);
           setCurrentVideoUrl(content);
-          setCurrentVideoTitle(response.data.title);
+          setCurrentVideoTitle(response.data.title || 'Video');
 
           const successMessage: Message = {
             id: (Date.now() + 2).toString(),
             role: 'assistant',
-            content: `✅ Video processed successfully!\n\n📺 **${response.data.title}**\n\nYou can now ask me questions about this video and I'll provide answers with timestamp citations!`,
+            content: `Video processed successfully!\n\n**${response.data.title}**\n\nYou can now ask me questions about this video and I'll provide answers with timestamp citations!`,
             timestamp: new Date().toLocaleTimeString('en-US', {
               hour: '2-digit',
               minute: '2-digit'
             })
           };
 
-          const finalMessages = [...updatedMessages, successMessage];
-          setMessages(finalMessages);
+          setMessages([...updatedMessages, successMessage]);
           setIsLoadingMessage(false);
-
-          if (currentChatId) {
-            localStorage.setItem(
-              `memvery_chat_${currentChatId}`,
-              JSON.stringify(finalMessages)
-            );
-          }
         }
       } else {
         // Regular chat message - use RAG
         if (processedVideoId) {
-          const response = await api.chat.sendMessage(content, processedVideoId);
+          const response = await api.chat.sendMessage(content, processedVideoId, currentChatId || undefined);
 
           if (response.success) {
+            // Update current chat ID if a new conversation was created
+            if (!currentChatId && response.data.conversationId) {
+              setCurrentChatId(response.data.conversationId);
+              // Reload chat history to show the new conversation
+              loadChatHistory();
+            }
+
             const assistantMessage: Message = {
               id: (Date.now() + 1).toString(),
               role: 'assistant',
@@ -220,39 +250,23 @@ export default function DashboardPage() {
               sources: response.data.sources
             };
 
-            const finalMessages = [...updatedMessages, assistantMessage];
-            setMessages(finalMessages);
+            setMessages([...updatedMessages, assistantMessage]);
             setIsLoadingMessage(false);
-
-            if (currentChatId) {
-              localStorage.setItem(
-                `memvery_chat_${currentChatId}`,
-                JSON.stringify(finalMessages)
-              );
-            }
           }
         } else {
           // No video processed yet
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
             role: 'assistant',
-            content: "Please paste a YouTube URL first so I can process the video and answer your questions about it!",
+            content: "Please paste a YouTube URL first so I can process the video and answer your questions about it! Or go to your Library to select an existing video.",
             timestamp: new Date().toLocaleTimeString('en-US', {
               hour: '2-digit',
               minute: '2-digit'
             })
           };
 
-          const finalMessages = [...updatedMessages, assistantMessage];
-          setMessages(finalMessages);
+          setMessages([...updatedMessages, assistantMessage]);
           setIsLoadingMessage(false);
-
-          if (currentChatId) {
-            localStorage.setItem(
-              `memvery_chat_${currentChatId}`,
-              JSON.stringify(finalMessages)
-            );
-          }
         }
       }
     } catch (error: any) {
@@ -261,23 +275,15 @@ export default function DashboardPage() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `❌ Error: ${error.message || 'Failed to process your request. Please make sure all services are running.'}`,
+        content: `Error: ${error.message || 'Failed to process your request. Please make sure all services are running.'}`,
         timestamp: new Date().toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit'
         })
       };
 
-      const finalMessages = [...updatedMessages, errorMessage];
-      setMessages(finalMessages);
+      setMessages([...updatedMessages, errorMessage]);
       setIsLoadingMessage(false);
-
-      if (currentChatId) {
-        localStorage.setItem(
-          `memvery_chat_${currentChatId}`,
-          JSON.stringify(finalMessages)
-        );
-      }
     }
   };
 

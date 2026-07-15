@@ -73,42 +73,52 @@ router.post('/submit', authenticate, async (req: AuthRequest, res: Response) => 
  */
 router.get('/jobs', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    // TODO: Fetch jobs from database filtered by user ID
+    const { getUserJobs } = await import('../services/database');
+    const jobs = await getUserJobs(req.user!.id);
 
-    // Placeholder response with mock data
     res.json({
       success: true,
-      data: [
-        {
-          id: '1',
-          url: 'https://youtube.com/watch?v=example1',
-          type: 'video',
-          status: 'ready',
-          userId: req.user?.id,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          url: 'https://youtube.com/@examplechannel',
-          type: 'channel',
-          status: 'processing',
-          userId: req.user?.id,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: '3',
-          url: 'https://youtube.com/watch?v=example2',
-          type: 'video',
-          status: 'queued',
-          userId: req.user?.id,
-          createdAt: new Date().toISOString(),
-        },
-      ],
+      data: jobs.map(job => ({
+        id: job.id,
+        videoId: job.videoId,
+        title: job.title,
+        channelTitle: job.channelTitle,
+        duration: job.duration,
+        url: job.url,
+        type: 'video',
+        status: job.status,
+        createdAt: job.createdAt,
+      })),
     });
   } catch (error) {
     console.error('Get jobs error:', error);
     res.status(500).json({
       error: 'Failed to fetch jobs',
+    });
+  }
+});
+
+/**
+ * Delete a job/content item
+ * DELETE /api/content/jobs/:id
+ * Protected route - requires authentication
+ */
+router.delete('/jobs/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { deleteJob } = await import('../services/database');
+
+    await deleteJob(id, req.user!.id);
+
+    res.json({
+      success: true,
+      message: 'Content deleted successfully',
+    });
+  } catch (error: any) {
+    console.error('Delete job error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete content',
     });
   }
 });

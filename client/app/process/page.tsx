@@ -1,14 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api/client';
+import { getCurrentUser } from '@/lib/auth';
 
 export default function ProcessPage() {
   const router = useRouter();
   const [url, setUrl] = useState('');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  async function checkAuth() {
+    const user = await getCurrentUser();
+    if (!user) {
+      router.push('/login');
+    } else {
+      setLoading(false);
+    }
+  }
 
   const isValidYouTubeUrl = (url: string) => {
     return url.includes('youtube.com') || url.includes('youtu.be');
@@ -50,6 +65,14 @@ export default function ProcessPage() {
       setProcessing(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#1a1a2e] to-[#0a0a0f] flex items-center justify-center">
+        <p className="text-gray-400">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#1a1a2e] to-[#0a0a0f] flex flex-col">

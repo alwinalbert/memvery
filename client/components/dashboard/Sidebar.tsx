@@ -70,6 +70,52 @@ export default function Sidebar({ chats, currentChatId, onSelectChat, onNewChat,
           </button>
         </div>
 
+        {/* Library / Domain Knowledge Navigation */}
+        {!isCollapsed && (
+          <div className="p-3 border-b border-gray-700">
+            <div className="flex gap-1 p-1 bg-black/30 rounded-lg">
+              <button
+                onClick={() => router.push('/library')}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-gray-800 text-gray-300 hover:text-white transition-colors"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  />
+                </svg>
+                Library
+              </button>
+              <button
+                onClick={() => router.push('/projects')}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-gray-800 text-gray-300 hover:text-white transition-colors"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                  />
+                </svg>
+                Projects
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* New Chat Button */}
         {!isCollapsed && (
           <div className="p-4">
@@ -213,6 +259,26 @@ export default function Sidebar({ chats, currentChatId, onSelectChat, onNewChat,
                 />
               </svg>
               <span className="text-sm font-medium">Settings</span>
+            </button>
+
+            <button
+              onClick={() => router.push('/billing')}
+              className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                />
+              </svg>
+              <span className="text-sm font-medium">Billing</span>
             </button>
 
             <button

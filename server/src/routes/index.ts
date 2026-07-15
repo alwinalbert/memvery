@@ -2,6 +2,7 @@ import { Router } from 'express';
 import healthRouter from './health';
 import contentRouter from './content';
 import chatRouter from './chat';
+import projectsRouter from './projects';
 
 const router = Router();
 
@@ -11,5 +12,6 @@ const router = Router();
 router.use('/health', healthRouter);
 router.use('/content', contentRouter);
 router.use('/chat', chatRouter);
+router.use('/projects', projectsRouter);
 
 export default router;

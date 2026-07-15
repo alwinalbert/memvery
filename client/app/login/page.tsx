@@ -28,7 +28,7 @@ export default function LoginPage() {
 
     try {
       await signIn(email, password);
-      router.push('/dashboard');
+      router.push('/process');
     } catch (error) {
       setMessage({
         type: 'error',
