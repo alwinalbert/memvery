@@ -221,3 +221,42 @@ export async function getUserJobs(userId: string): Promise<JobRecord[]> {
     updatedAt: job.updated_at,
   }));
 }
+
+/**
+ * Delete a job and its embeddings
+ */
+export async function deleteJob(jobId: string, userId: string): Promise<void> {
+  // First verify the job belongs to the user
+  const { data: job, error: fetchError } = await supabase
+    .from('jobs')
+    .select('id')
+    .eq('id', jobId)
+    .eq('user_id', userId)
+    .single();
+
+  if (fetchError || !job) {
+    throw new Error('Job not found or unauthorized');
+  }
+
+  // Delete embeddings first (foreign key constraint)
+  const { error: embeddingError } = await supabase
+    .from('embeddings')
+    .delete()
+    .eq('job_id', jobId);
+
+  if (embeddingError) {
+    throw new Error(`Failed to delete embeddings: ${embeddingError.message}`);
+  }
+
+  // Delete the job
+  const { error: jobError } = await supabase
+    .from('jobs')
+    .delete()
+    .eq('id', jobId);
+
+  if (jobError) {
+    throw new Error(`Failed to delete job: ${jobError.message}`);
+  }
+
+  console.log(`✅ Job ${jobId} and its embeddings deleted successfully`);
+}

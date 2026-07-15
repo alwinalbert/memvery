@@ -14,7 +14,7 @@ const router = Router();
  */
 router.post('/message', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { message, videoId } = req.body;
+    const { message, videoId, conversationId } = req.body;
 
     if (!message) {
       return res.status(400).json({
@@ -39,6 +39,36 @@ router.post('/message', authenticate, async (req: AuthRequest, res: Response) =>
       });
     }
 
+    // Get or create conversation
+    let activeConversationId = conversationId;
+    if (!activeConversationId) {
+      // Create new conversation
+      const { data: newConv, error: convError } = await supabase
+        .from('conversations')
+        .insert({
+          user_id: req.user!.id,
+          job_id: videoId,
+          title: message.slice(0, 100),
+        })
+        .select()
+        .single();
+
+      if (convError) {
+        console.error('Failed to create conversation:', convError);
+      } else {
+        activeConversationId = newConv.id;
+      }
+    }
+
+    // Save user message to database
+    if (activeConversationId) {
+      await supabase.from('messages').insert({
+        conversation_id: activeConversationId,
+        role: 'user',
+        content: message,
+      });
+    }
+
     // Create embedding for user's question using OpenAI
     console.log(`🤖 Creating query embedding with OpenAI...`);
     const queryEmbedding = await createEmbedding(message);
@@ -60,16 +90,28 @@ router.post('/message', authenticate, async (req: AuthRequest, res: Response) =>
     }
 
     if (!results || results.length === 0) {
-      return res.json({
-        success: true,
-        data: {
-          conversationId: `conv_${Date.now()}`,
-          response: `I couldn't find relevant information in the video to answer your question. This might be because:
+      const noResultResponse = `I couldn't find relevant information in the video to answer your question. This might be because:
 - The video doesn't cover this topic
 - The question is too specific
 - The transcript quality is limited
 
-Try asking a more general question about the video content.`,
+Try asking a more general question about the video content.`;
+
+      // Save assistant response
+      if (activeConversationId) {
+        await supabase.from('messages').insert({
+          conversation_id: activeConversationId,
+          role: 'assistant',
+          content: noResultResponse,
+          sources: [],
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          conversationId: activeConversationId,
+          response: noResultResponse,
           sources: [],
           timestamp: new Date().toISOString(),
         },
@@ -103,10 +145,20 @@ Try asking a more general question about the video content.`,
       similarity: c.similarity,
     }));
 
+    // Save assistant response to database
+    if (activeConversationId) {
+      await supabase.from('messages').insert({
+        conversation_id: activeConversationId,
+        role: 'assistant',
+        content: aiResponse,
+        sources: sources,
+      });
+    }
+
     res.json({
       success: true,
       data: {
-        conversationId: `conv_${Date.now()}`,
+        conversationId: activeConversationId,
         response: aiResponse,
         sources,
         timestamp: new Date().toISOString(),
@@ -122,7 +174,145 @@ Try asking a more general question about the video content.`,
 });
 
 /**
- * Get chat history for a specific content
+ * Get all conversations for current user
+ * GET /api/chat/conversations
+ * Protected route - requires authentication
+ */
+router.get('/conversations', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { data: conversations, error } = await supabase
+      .from('conversations')
+      .select(`
+        id,
+        title,
+        job_id,
+        created_at,
+        updated_at,
+        jobs (
+          title,
+          video_id
+        )
+      `)
+      .eq('user_id', req.user!.id)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json({
+      success: true,
+      data: (conversations || []).map(conv => ({
+        id: conv.id,
+        title: conv.title,
+        jobId: conv.job_id,
+        videoTitle: (conv.jobs as any)?.title || null,
+        videoId: (conv.jobs as any)?.video_id || null,
+        createdAt: conv.created_at,
+        updatedAt: conv.updated_at,
+      })),
+    });
+  } catch (error: any) {
+    console.error('Get conversations error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch conversations',
+    });
+  }
+});
+
+/**
+ * Get messages for a specific conversation
+ * GET /api/chat/conversations/:id/messages
+ * Protected route - requires authentication
+ */
+router.get('/conversations/:id/messages', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Verify conversation belongs to user
+    const { data: conv, error: convError } = await supabase
+      .from('conversations')
+      .select('id, job_id')
+      .eq('id', id)
+      .eq('user_id', req.user!.id)
+      .single();
+
+    if (convError || !conv) {
+      return res.status(404).json({
+        success: false,
+        error: 'Conversation not found',
+      });
+    }
+
+    // Get messages
+    const { data: messages, error: msgError } = await supabase
+      .from('messages')
+      .select('id, role, content, sources, created_at')
+      .eq('conversation_id', id)
+      .order('created_at', { ascending: true });
+
+    if (msgError) {
+      throw new Error(msgError.message);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        conversationId: id,
+        jobId: conv.job_id,
+        messages: (messages || []).map(msg => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          sources: msg.sources || [],
+          timestamp: msg.created_at,
+        })),
+      },
+    });
+  } catch (error: any) {
+    console.error('Get messages error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch messages',
+    });
+  }
+});
+
+/**
+ * Delete a conversation
+ * DELETE /api/chat/conversations/:id
+ * Protected route - requires authentication
+ */
+router.delete('/conversations/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('conversations')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.user!.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Conversation deleted successfully',
+    });
+  } catch (error: any) {
+    console.error('Delete conversation error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete conversation',
+    });
+  }
+});
+
+/**
+ * Get chat history for a specific content (legacy endpoint)
  * GET /api/chat/history/:contentId
  * Protected route - requires authentication
  */
@@ -130,27 +320,63 @@ router.get('/history/:contentId', authenticate, async (req: AuthRequest, res: Re
   try {
     const { contentId } = req.params;
 
-    // TODO: Fetch chat history from database
+    // Get conversations for this content
+    const { data: conversations, error } = await supabase
+      .from('conversations')
+      .select(`
+        id,
+        title,
+        created_at,
+        messages (
+          id,
+          role,
+          content,
+          sources,
+          created_at
+        )
+      `)
+      .eq('user_id', req.user!.id)
+      .eq('job_id', contentId)
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    // Placeholder response
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!conversations || conversations.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          contentId,
+          messages: [],
+        },
+      });
+    }
+
+    const conversation = conversations[0];
+
     res.json({
       success: true,
       data: {
         contentId,
-        messages: [
-          {
-            id: '1',
-            role: 'assistant',
-            content: 'Hello! I can help you search and understand the content from your submitted videos.',
-            timestamp: new Date().toISOString(),
-          },
-        ],
+        conversationId: conversation.id,
+        messages: ((conversation.messages as any[]) || [])
+          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          .map(msg => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            sources: msg.sources || [],
+            timestamp: msg.created_at,
+          })),
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get chat history error:', error);
     res.status(500).json({
-      error: 'Failed to fetch chat history',
+      success: false,
+      error: error.message || 'Failed to fetch chat history',
     });
   }
 });

@@ -37,7 +37,7 @@ export default function GoogleButton() {
             });
 
             if (error) throw error;
-            router.push('/dashboard');
+            router.push('/process');
           } catch (error) {
             console.error('Google sign in failed:', error);
           }
